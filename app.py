@@ -70,54 +70,13 @@ Fibonacci:
 ===== วิเคราะห์ครอบคลุมทุกหัวข้อ =====
 
 1. SESSION BIAS
-- Session นี้เหมาะเทรดไหม
-- Smart Money มักทำอะไรใน session นี้กับทอง
-
 2. MARKET STRUCTURE (M15 → M5 → M1)
-- แนวโน้มหลัก Bullish/Bearish/Sideways
-- BOS หรือ CHoCH เกิดที่ระดับไหน
-- HH/HL หรือ LH/LL
-- Structure shift มีไหม
-
 3. SMC / ICT ANALYSIS
-- Supply Zone (SZ) ที่แข็งแกร่ง
-- Demand Zone (DZ) ที่แข็งแกร่ง  
-- Fair Value Gap (FVG) ที่ยังไม่ถูก fill
-- Order Block (OB) Bullish/Bearish
-- Breaker Block มีไหม
-- Liquidity Pool (Buy-side/Sell-side) อยู่ที่ไหน
-- Equal Highs/Lows (EQH/EQL) มีไหม
-- Imbalance / Gap มีไหม
-
 4. PRICE ACTION & PATTERNS
-- รูปแบบแท่งเทียนปัจจุบัน (Engulfing, Pin Bar, Doji, Hammer, Shooting Star, Inside Bar, Marubozu)
-- Chart Pattern (Double Top/Bottom, H&S, Wedge, Triangle, Flag, Channel)
-- Trendline Break มีไหม
-- Wick Rejection แข็งแค่ไหน
-
 5. FIBONACCI CONFLUENCE
-- ราคาอยู่ใกล้ Fib level ไหน
-- Golden Zone (0.618-0.786) มี confluence กับ OB หรือ FVG ไหม
-- Extension targets ที่ไหน
-
 6. INDICATORS CONFLUENCE
-- EMA alignment (20/50/200) บอกอะไร
-- RSI: Overbought/Oversold/Divergence
-- ATR: ความผันผวนเหมาะเทรดไหม
-- Volume: Spike หรือ Dry
-
 7. KILL ZONES & TIMING
-- อยู่ใน Kill Zone ไหม (London Open 07-09, NY Open 12-14 UTC)
-- ควรรอ Kill Zone ไหม
-
 8. ENTRY DECISION
-- เทรดหรือ NO TRADE พร้อมเหตุผล
-- Confluence score (กี่ปัจจัยที่ตรงกัน)
-- BUY หรือ SELL
-- Entry zone ที่แม่นยำ
-- SL อิง Structure + ATR
-- TP1 (1:1), TP2 (1:2), TP3 (1:3+)
-- Position size recommendation (ความเสี่ยง)
 
 ตอบในรูปแบบนี้:
 
@@ -125,28 +84,20 @@ Fibonacci:
 🏆 XAUUSD INSTITUTIONAL ANALYSIS
 ⏰ {session}
 ━━━━━━━━━━━━━━━━━━━━━━
-
 🌍 SESSION BIAS
 [วิเคราะห์]
-
 📊 MARKET STRUCTURE
 [วิเคราะห์]
-
 🎯 SMC / ICT ZONES
 [วิเคราะห์]
-
 🕯 PRICE ACTION
 [วิเคราะห์]
-
 📐 FIBONACCI
 [วิเคราะห์]
-
 📈 INDICATORS
 [วิเคราะห์]
-
 ⏱ TIMING
 [วิเคราะห์]
-
 ━━━━━━━━━━━━━━━━━━━━━━
 ⚡ SIGNAL: [BUY / SELL / NO TRADE]
 Entry    : [ราคา]
@@ -170,7 +121,6 @@ Confidence: [%]
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    # แบ่งข้อความถ้ายาวเกิน 4096 ตัวอักษร
     if len(message) > 4096:
         for i in range(0, len(message), 4096):
             requests.post(url, json={
@@ -185,7 +135,7 @@ def send_telegram(message):
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.json
+    data = request.get_json(force=True, silent=True) or {}
     analysis = analyze_with_claude(data)
     send_telegram(analysis)
     return "OK", 200
