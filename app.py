@@ -56,14 +56,9 @@ Weekly High: {data.get('weekly_high')} | Weekly Low: {data.get('weekly_low')}
 Daily High: {data.get('daily_high')} | Daily Low: {data.get('daily_low')}
 Prev Day High: {data.get('prev_day_high')} | Prev Day Low: {data.get('prev_day_low')}
 Resistance: {data.get('resistance')} | Support: {data.get('support')}
-
-Pivot: {data.get('pivot')}
-R1: {data.get('r1')} | R2: {data.get('r2')}
+Pivot: {data.get('pivot')} | R1: {data.get('r1')} | R2: {data.get('r2')}
 S1: {data.get('s1')} | S2: {data.get('s2')}
-
 Fib 0.382: {data.get('fib_382')} | Fib 0.618: {data.get('fib_618')}
-
-Raw data: {json.dumps(data)}
 
 ===== วิเคราะห์ =====
 1. SESSION BIAS
@@ -117,23 +112,31 @@ Confidence: [%]
     return message.content[0].text
 
 def send_telegram(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    token = TELEGRAM_TOKEN
+    if not token.startswith("bot"):
+        token = "bot" + token
+    url = f"https://api.telegram.org/{token}/sendMessage"
+    print(f"Token: {token[:20]}...")
+    print(f"Chat ID: {TELEGRAM_CHAT_ID}")
     if len(message) > 4096:
         for i in range(0, len(message), 4096):
-            requests.post(url, json={
+            r = requests.post(url, json={
                 "chat_id": TELEGRAM_CHAT_ID,
                 "text": message[i:i+4096]
             })
+            print(f"Response: {r.status_code} {r.text[:200]}")
     else:
-        requests.post(url, json={
+        r = requests.post(url, json={
             "chat_id": TELEGRAM_CHAT_ID,
             "text": message
         })
+        print(f"Response: {r.status_code} {r.text[:200]}")
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
     try:
         raw = request.get_data(as_text=True)
+        print(f"Raw data: {raw[:200]}")
         try:
             data = json.loads(raw)
         except:
@@ -141,6 +144,7 @@ def webhook():
         analysis = analyze_with_claude(data)
         send_telegram(analysis)
     except Exception as e:
+        print(f"Error: {str(e)}")
         send_telegram(f"❌ Error: {str(e)}")
     return "OK", 200
 
