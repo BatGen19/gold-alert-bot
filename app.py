@@ -3,6 +3,7 @@ import requests
 import os
 import anthropic
 import json
+import time
 
 app = Flask(__name__)
 
@@ -11,10 +12,23 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 CLAUDE_API_KEY   = os.environ.get("CLAUDE_API_KEY")
 
 # ══════════════════════════════
+# DEDUPLICATION — กันส่งซ้ำ
+# ══════════════════════════════
+_last_sent = {}  # key → timestamp
+
+def is_duplicate(key, cooldown_sec=300):
+    """คืน True ถ้าส่ง key นี้ไปแล้วใน cooldown_sec วินาที"""
+    now = time.time()
+    if key in _last_sent and now - _last_sent[key] < cooldown_sec:
+        return True
+    _last_sent[key] = now
+    return False
+
+# ══════════════════════════════
 # TELEGRAM
 # ══════════════════════════════
 def send_telegram(message):
-    token = TELEGRAM_TOKEN
+    token = TELEGRAM_TOKEN.strip()
     if not token.startswith("bot"):
         token = "bot" + token
     url = f"https://api.telegram.org/{token}/sendMessage"
@@ -63,7 +77,7 @@ def get_fixed_prompt(data, label):
         "14:00_NY":      "🔥 NY Open",
         "23:00_NIGHT":   "🌙 Night Summary"
     }
-    title = title_map.get(label, label)
+    title = title_map.get(label, f"📊 {label}")  # fallback ดีกว่าเดิม
 
     return f"""คุณคือ SMC Analyst วิเคราะห์ XAUUSD กระชับ ตรงประเด็น
 
@@ -104,7 +118,6 @@ def get_opportunity_prompt(data):
     m1_atr    = data.get("m1_atr", 1)
     dir_label = "🟢 BUY" if direction == "BULL" else "🔴 SELL"
 
-    # Entry wait condition
     if direction == "BULL":
         wait = (
             "1. รอ M1 CHoCH หรือ BOS ขึ้น\n"
@@ -188,19 +201,38 @@ def webhook():
         raw = request.get_data(as_text=True)
         try:
             data = json.loads(raw)
-        except:
+        except Exception:
             send_telegram(f"⚠️ Parse Error:\n{raw[:300]}")
             return "OK", 200
 
-        alert_type = data.get("alert_type","UNKNOWN")
+        alert_type = data.get("alert_type", "UNKNOWN")
 
+        # ── dedup key ──────────────────────────
         if alert_type == "FIXED":
-            prompt = get_fixed_prompt(data, data.get("label","UPDATE"))
+            label = data.get("label", "UPDATE")
+            dedup_key = f"FIXED_{label}"
+            cooldown  = 300  # 5 นาที — กัน Pine ยิงซ้ำในชั่วโมงเดียวกัน
+
         elif alert_type == "OPPORTUNITY":
-            prompt = get_opportunity_prompt(data)
+            direction = data.get("direction", "?")
+            th_time   = data.get("thai_time", "0:00")
+            dedup_key = f"OPP_{direction}_{th_time}"
+            cooldown  = 120  # 2 นาที
+
         else:
             send_telegram(f"⚠️ Unknown alert_type: {alert_type}")
             return "OK", 200
+
+        # ── ตรวจซ้ำ ───────────────────────────
+        if is_duplicate(dedup_key, cooldown):
+            print(f"[SKIP] duplicate: {dedup_key}")
+            return "OK", 200
+
+        # ── สร้าง prompt ──────────────────────
+        if alert_type == "FIXED":
+            prompt = get_fixed_prompt(data, label)
+        else:
+            prompt = get_opportunity_prompt(data)
 
         analysis = analyze_with_claude(prompt)
         send_telegram(analysis)
