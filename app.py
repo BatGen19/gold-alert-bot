@@ -219,7 +219,7 @@ def get_opportunity_prompt(data):
 
     return f"""คุณคือ SMC Trader วิเคราะห์ XAUUSD เน้นเทรด M1/M5 Winrate สูง RR 1:2+
 
-DIRECTION:{direction} CONF:{conf} TIME:{th} Rem:{remaining}/3
+DIRECTION:{direction} CONF:{conf} TIME:{th} Rem:{remaining}/4
 M5 Event Valid:{m5_evv} | M1 Event Valid:{m1_evv}
 
 STRUCTURE:
