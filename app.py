@@ -39,15 +39,15 @@ def send_telegram(message):
 # ══════════════════════════════
 def ascii_chart(data):
     try:
-        m5_res = float(data.get("m5_res", 0))
-        m5_sup = float(data.get("m5_sup", 0))
-        m1_res = float(data.get("m1_res", 0))
-        m1_sup = float(data.get("m1_sup", 0))
-        price  = float(data.get("m1_close", 0))
-        m5_pat = data.get("m5_pat", "NONE")
-        m1_pat = data.get("m1_pat", "NONE")
-        m5_tl  = data.get("m5_tl", "MIXED")
-        m1_tl  = data.get("m1_tl", "MIXED")
+        m5_res   = float(data.get("m5_res", 0))
+        m5_sup   = float(data.get("m5_sup", 0))
+        m1_res   = float(data.get("m1_res", 0))
+        m1_sup   = float(data.get("m1_sup", 0))
+        price    = float(data.get("m1_close", 0))
+        m5_pat   = data.get("m5_pat", "NONE")
+        m1_pat   = data.get("m1_pat", "NONE")
+        m5_tl    = data.get("m5_tl", "MIXED")
+        m1_tl    = data.get("m1_tl", "MIXED")
 
         if m5_res == 0 or m5_sup == 0 or price == 0:
             return ""
@@ -58,8 +58,8 @@ def ascii_chart(data):
         if rng <= 0:
             return ""
 
-        rows  = 7
-        step  = rng / rows
+        rows = 7
+        step = rng / rows
         lines = ["📐 KEY LEVELS"]
 
         for i in range(rows + 1):
@@ -67,29 +67,39 @@ def ascii_chart(data):
             bar = "──────"
             tag = ""
             if abs(lvl - m5_res) < step * 0.5:
-                bar = "━━━━━━"; tag = "◀ RES(M5)"
+                bar = "━━━━━━"
+                tag = "◀ RES(M5)"
             elif abs(lvl - m5_sup) < step * 0.5:
-                bar = "━━━━━━"; tag = "◀ SUP(M5)"
+                bar = "━━━━━━"
+                tag = "◀ SUP(M5)"
             elif abs(lvl - m1_res) < step * 0.5:
-                bar = "┄┄┄┄┄┄"; tag = "◀ res(M1)"
+                bar = "┄┄┄┄┄┄"
+                tag = "◀ res(M1)"
             elif abs(lvl - m1_sup) < step * 0.5:
-                bar = "┄┄┄┄┄┄"; tag = "◀ sup(M1)"
+                bar = "┄┄┄┄┄┄"
+                tag = "◀ sup(M1)"
             if abs(lvl - price) < step * 0.6:
                 tag = "◄ NOW " + tag
             lines.append(f"{round(lvl,1):>8} {bar}{tag}")
 
-        pat_map = {
-            "DBL_TOP":"Double Top 🔴", "DBL_BOT":"Double Bottom 🟢",
-            "ASC_TRI":"Ascending Triangle ↗", "DESC_TRI":"Descending Triangle ↘",
-            "SYM_TRI":"Symmetrical Triangle ↔", "RISE_CH":"Rising Channel 📈",
-            "FALL_CH":"Falling Channel 📉"
-        }
         tl_m5 = "↗" if m5_tl == "UP" else "↘" if m5_tl == "DOWN" else "↔"
         tl_m1 = "↗" if m1_tl == "UP" else "↘" if m1_tl == "DOWN" else "↔"
         lines.append(f"TL M5:{tl_m5} M1:{tl_m1}")
         if m5_pat != "NONE":
+            pat_map = {
+                "DBL_TOP":"Double Top 🔴","DBL_BOT":"Double Bottom 🟢",
+                "ASC_TRI":"Ascending Triangle ↗","DESC_TRI":"Descending Triangle ↘",
+                "SYM_TRI":"Symmetrical Triangle ↔","RISE_CH":"Rising Channel 📈",
+                "FALL_CH":"Falling Channel 📉"
+            }
             lines.append(f"Pattern M5: {pat_map.get(m5_pat, m5_pat)}")
         if m1_pat != "NONE":
+            pat_map = {
+                "DBL_TOP":"Double Top 🔴","DBL_BOT":"Double Bottom 🟢",
+                "ASC_TRI":"Ascending Triangle ↗","DESC_TRI":"Descending Triangle ↘",
+                "SYM_TRI":"Symmetrical Triangle ↔","RISE_CH":"Rising Channel 📈",
+                "FALL_CH":"Falling Channel 📉"
+            }
             lines.append(f"Pattern M1: {pat_map.get(m1_pat, m1_pat)}")
         return "\n".join(lines)
     except:
@@ -99,15 +109,14 @@ def ascii_chart(data):
 # HELPERS
 # ══════════════════════════════
 def ev_line(name, tr, ev, evv, rsi, atr=""):
-    valid = f"[{evv}]" if evv not in ("N/A", "") else ""
+    valid = f"[{evv}]" if evv not in ("N/A","") else ""
     atr_s = f" ATR:{atr}" if atr else ""
     return f"{name}: {tr} | {ev}{valid} RSI:{rsi}{atr_s}"
 
 def run_lines(data):
     return (
         f"LR → Bull {data.get('lr_bull')}% Bear {data.get('lr_bear')}% (H1+M15)\n"
-        f"SR → Bull {data.get('sr_bull')}% Bear {data.get('sr_bear')}% (M1+M5)\n"
-        f"Avg→ Bull {data.get('bull_avg','?')}% / Bear {data.get('bear_avg','?')}%"
+        f"SR → Bull {data.get('sr_bull')}% Bear {data.get('sr_bear')}% (M1+M5)"
     )
 
 def ctx_line(data):
@@ -118,54 +127,100 @@ def ctx_line(data):
     )
 
 def struct_block(data):
-    return "\n".join([
-        ev_line("H4",  data.get("h4_tr"),  data.get("h4_ev"),  "N/A",               data.get("h4_rsi")),
+    lines = [
+        ev_line("H4",  data.get("h4_tr"),  data.get("h4_ev"),  "N/A",         data.get("h4_rsi")),
         ev_line("H1",  data.get("h1_tr"),  data.get("h1_ev"),  data.get("h1_evv"),  data.get("h1_rsi"),  data.get("h1_atr")),
         ev_line("M15", data.get("m15_tr"), data.get("m15_ev"), data.get("m15_evv"), data.get("m15_rsi"), data.get("m15_atr")),
         ev_line("M5",  data.get("m5_tr"),  data.get("m5_ev"),  data.get("m5_evv"),  data.get("m5_rsi"),  data.get("m5_atr")),
         ev_line("M1",  data.get("m1_tr"),  data.get("m1_ev"),  data.get("m1_evv"),  data.get("m1_rsi"),  data.get("m1_atr")),
-    ])
+    ]
+    return "\n".join(lines)
 
 # ══════════════════════════════
-# OPP PROMPT
+# FIXED PROMPT
+# ══════════════════════════════
+def get_fixed_prompt(data, label):
+    th   = data.get("thai_time","N/A")
+    title_map = {
+        "06:00_MORNING": "🌅 Morning Bias",
+        "09:00_LONDON":  "⚡ London Open",
+        "14:00_NY":      "🔥 NY Open",
+        "23:00_NIGHT":   "🌙 Night Summary"
+    }
+    title = title_map.get(label, label)
+    chart = ascii_chart(data)
+
+    return f"""คุณคือ SMC Analyst วิเคราะห์ XAUUSD กระชับ ตรงประเด็น
+
+STRUCTURE:
+{struct_block(data)}
+{run_lines(data)}
+{ctx_line(data)}
+
+{chart}
+
+ตอบในรูปแบบนี้:
+
+━━━━━━━━━━━━━━━━━━
+{title} | {th}
+━━━━━━━━━━━━━━━━━━
+📊 STRUCTURE
+H4 : [1 บรรทัด — Bias หลัก]
+H1 : [1 บรรทัด — BOS/CHoCH + REAL/FAKE]
+M15: [1 บรรทัด — Structure]
+M5 : [1 บรรทัด — Pattern ถ้ามี]
+M1 : [1 บรรทัด — M1 Trend]
+
+📈 LR Bull {data.get('lr_bull')}% / Bear {data.get('lr_bear')}%
+📉 SR Bull {data.get('sr_bull')}% / Bear {data.get('sr_bear')}%
+
+🎯 BIAS: [BULL/BEAR/MIXED + เหตุผล 1 บรรทัด]
+📍 จับตา: [Zone/Level ที่สำคัญ]
+⚠️ ระวัง: [1 บรรทัด]
+━━━━━━━━━━━━━━━━━━"""
+
+# ══════════════════════════════
+# OPPORTUNITY PROMPT
 # ══════════════════════════════
 def get_opportunity_prompt(data):
-    th        = data.get("thai_time", "N/A")
-    direction = data.get("dir", "?")
-    conf      = data.get("conf", "MEDIUM")
-    remaining = data.get("med_rem", 0)
-    m1_close  = data.get("m1_close", "N/A")
+    th        = data.get("thai_time","N/A")
+    direction = data.get("dir","?")
+    conf      = data.get("conf","MEDIUM")
+    remaining = data.get("opp_rem", 0)
+    m1_close  = data.get("m1_close","N/A")
     m1_atr    = data.get("m1_atr", 1)
-    bull_avg  = data.get("bull_avg", "?")
-    bear_avg  = data.get("bear_avg", "?")
+    m5_evv    = data.get("m5_evv","N/A")
+    m1_evv    = data.get("m1_evv","N/A")
+    dir_e     = "🟢 BUY" if direction == "BULL" else "🔴 SELL"
+    conf_e    = "🔥 HIGH" if conf == "HIGH" else "⚡ MEDIUM"
     chart     = ascii_chart(data)
-
-    dir_e  = "🟢 BUY" if direction == "BULL" else "🔴 SELL"
-    conf_e = "🔥 HIGH (ไม่มีลิมิต)" if conf == "HIGH" else f"⚡ MEDIUM (เหลือ {remaining}/3)"
-    avg_s  = f"Bull {bull_avg}%" if direction == "BULL" else f"Bear {bear_avg}%"
 
     try:
         atr_val = float(m1_atr)
-        sl_p = round(atr_val * 1.5, 2)
-        tp1  = round(sl_p * 1.0, 2)
-        tp2  = round(sl_p * 2.0, 2)
-        tp3  = round(sl_p * 3.0, 2)
+        sl_p    = round(atr_val * 1.5, 2)
+        tp1     = round(sl_p * 1.0, 2)
+        tp2     = round(sl_p * 2.0, 2)
+        tp3     = round(sl_p * 3.0, 2)
     except:
         sl_p = tp1 = tp2 = tp3 = "N/A"
 
-    wait = (
-        "① M1 CHoCH/BOS ขึ้น + candle ปิดเหนือ swing high\n"
-        "② wick ล่างยาว rejection ที่ SUP/FVG\n"
-        "③ M1 RSI > 50 หรือ MACD ตัดขึ้น"
-    ) if direction == "BULL" else (
-        "① M1 CHoCH/BOS ลง + candle ปิดใต้ swing low\n"
-        "② wick บนยาว rejection ที่ RES\n"
-        "③ M1 RSI < 50 หรือ MACD ตัดลง"
-    )
+    if direction == "BULL":
+        wait = (
+            "① M1 CHoCH/BOS ขึ้น + candle ปิดเหนือ swing high\n"
+            "② wick ล่างยาว rejection ที่ SUP หรือ FVG\n"
+            "③ M1 RSI > 50 หรือ MACD ตัดขึ้น"
+        )
+    else:
+        wait = (
+            "① M1 CHoCH/BOS ลง + candle ปิดใต้ swing low\n"
+            "② wick บนยาว rejection ที่ RES\n"
+            "③ M1 RSI < 50 หรือ MACD ตัดลง"
+        )
 
     return f"""คุณคือ SMC Trader วิเคราะห์ XAUUSD เน้นเทรด M1/M5 Winrate สูง RR 1:2+
 
-DIRECTION:{direction} | CONF:{conf} ({avg_s}) | TIME:{th}
+DIRECTION:{direction} CONF:{conf} TIME:{th} Rem:{remaining}/4
+M5 Event Valid:{m5_evv} | M1 Event Valid:{m1_evv}
 
 STRUCTURE:
 {struct_block(data)}
@@ -185,7 +240,7 @@ M15   : [Structure confirm?]
 M5    : [Pattern + Event valid?]
 M1    : [Entry signal + Vol]
 
-📈 Confidence: {avg_s}
+📈 LR {data.get('lr_bull')}%Bull / SR {data.get('sr_bull')}%Bull
 
 ⏳ รอเข้า:
 {wait}
@@ -200,87 +255,17 @@ TP3   : ~{tp3} pips → 1:3
 ━━━━━━━━━━━━━━━━━━
 💡 [สรุป 2 บรรทัด]
 ⚠️ [ความเสี่ยง 1 บรรทัด]
-🎯 Confidence: {conf} ({avg_s})"""
-
-# ══════════════════════════════
-# ZONE HIT PROMPT — ตอบสั้น ฉับ
-# ══════════════════════════════
-def get_zone_hit_prompt(data):
-    th        = data.get("thai_time", "N/A")
-    direction = data.get("dir", "?")
-    m1_close  = data.get("m1_close", "N/A")
-    m1_atr    = data.get("m1_atr", 1)
-    m1_ev     = data.get("m1_ev", "NONE")
-    m1_evv    = data.get("m1_evv", "N/A")
-    m1_rsi    = data.get("m1_rsi", "?")
-    m1_vol    = data.get("m1_vol", "?")
-    m5_sup    = data.get("m5_sup", "?")
-    m5_res    = data.get("m5_res", "?")
-    bull_avg  = data.get("bull_avg", "?")
-    bear_avg  = data.get("bear_avg", "?")
-
-    dir_e      = "🟢 BUY" if direction == "BULL" else "🔴 SELL"
-    zone_level = m5_sup if direction == "BULL" else m5_res
-    avg_s      = f"Bull {bull_avg}%" if direction == "BULL" else f"Bear {bear_avg}%"
-
-    try:
-        atr_val = float(m1_atr)
-        sl_p = round(atr_val * 1.5, 2)
-        tp2  = round(sl_p * 2.0, 2)
-    except:
-        sl_p = tp2 = "N/A"
-
-    # Quick pre-check indicators for Claude's context
-    try:
-        rsi_val = float(m1_rsi)
-        rsi_ok  = "✅" if (direction == "BULL" and rsi_val > 45) or (direction == "BEAR" and rsi_val < 55) else "❌"
-    except:
-        rsi_ok = "?"
-
-    vol_ok = "✅" if m1_vol in ("HIGH", "NORMAL") else "❌"
-    evv_ok = "✅" if m1_evv == "REAL" else "⚠️" if m1_evv == "FAKE" else "?"
-
-    return f"""คุณคือ SMC Trader ตัดสินใจออก order ในเวลา 5 วินาที ตอบสั้นมาก
-
-ZONE HIT {direction} — ราคาถึงโซน {zone_level} แล้ว
-Price Now : {m1_close}
-M1 Event  : {m1_ev} [{m1_evv}] {evv_ok}
-RSI M1    : {m1_rsi} {rsi_ok}
-Volume    : {m1_vol} {vol_ok}
-Confidence: {avg_s}
-
-STRUCTURE:
-{struct_block(data)}
-{ctx_line(data)}
-
-ตอบในรูปแบบนี้เท่านั้น (ห้ามเพิ่มเติม):
-
-━━━━━━━━━━━━━━━━━━
-🎯 ZONE HIT {dir_e} | {th}
-📍 Zone: {zone_level}  Now: {m1_close}
-━━━━━━━━━━━━━━━━━━
-[✅ ออก ORDER หรือ ❌ ยังไม่ออก — เลือกอันเดียว]
-เหตุผล: [1 บรรทัด]
-
-[ถ้าออก ORDER]
-Entry : {m1_close}
-SL    : ~{sl_p} pips
-TP    : ~{tp2} pips (1:2)
-Risk  : [ต่ำ / กลาง / สูง]
-
-[ถ้าไม่ออก]
-รอ: [สัญญาณที่ต้องรอ 1 บรรทัด]
-━━━━━━━━━━━━━━━━━━"""
+🎯 Confidence: {conf}"""
 
 # ══════════════════════════════
 # CLAUDE
 # ══════════════════════════════
-def analyze_with_claude(prompt, max_tokens=800):
+def analyze_with_claude(prompt):
     client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
     msg = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}]
+        max_tokens=1000,
+        messages=[{"role":"user","content":prompt}]
     )
     return msg.content[0].text
 
@@ -297,34 +282,29 @@ def webhook():
             send_telegram(f"⚠️ Parse Error:\n{raw[:300]}")
             return "OK", 200
 
-        alert_type = data.get("type", "UNKNOWN")
+        alert_type = data.get("type","UNKNOWN")
 
-        if alert_type == "OPP":
-            direction = data.get("dir", "?")
-            conf      = data.get("conf", "MEDIUM")
-            th_time   = data.get("thai_time", "0:00")
-            dedup_key = f"OPP_{direction}_{conf}_{th_time}"
-            # HIGH cooldown 120s, MEDIUM cooldown 180s
-            cooldown  = 120 if conf == "HIGH" else 180
-            if is_duplicate(dedup_key, cooldown):
+        if alert_type == "FIXED":
+            label     = data.get("label","UPDATE")
+            dedup_key = f"FIXED_{label}"
+            if is_duplicate(dedup_key, 300):
                 return "OK", 200
-            prompt   = get_opportunity_prompt(data)
-            analysis = analyze_with_claude(prompt, max_tokens=900)
-            send_telegram(analysis)
+            prompt = get_fixed_prompt(data, label)
 
-        elif alert_type == "ZONE_HIT":
-            direction = data.get("dir", "?")
-            th_time   = data.get("thai_time", "0:00")
-            dedup_key = f"ZONE_{direction}_{th_time}"
-            # 90s cooldown — fast follow-up but no spam
-            if is_duplicate(dedup_key, 90):
+        elif alert_type == "OPP":
+            direction = data.get("dir","?")
+            th_time   = data.get("thai_time","0:00")
+            dedup_key = f"OPP_{direction}_{th_time}"
+            if is_duplicate(dedup_key, 120):
                 return "OK", 200
-            prompt   = get_zone_hit_prompt(data)
-            analysis = analyze_with_claude(prompt, max_tokens=400)
-            send_telegram(analysis)
+            prompt = get_opportunity_prompt(data)
 
         else:
-            send_telegram(f"⚠️ Unknown alert type: {alert_type}")
+            send_telegram(f"⚠️ Unknown type: {alert_type}")
+            return "OK", 200
+
+        analysis = analyze_with_claude(prompt)
+        send_telegram(analysis)
 
     except Exception as e:
         print(f"Error: {str(e)}")
