@@ -13,9 +13,6 @@ CLAUDE_API_KEY   = os.environ.get("CLAUDE_API_KEY")
 
 _last_sent = {}
 
-# ══════════════════════════════
-# DEDUP
-# ══════════════════════════════
 def is_duplicate(key, cooldown_sec=300):
     now = time.time()
     if key in _last_sent and now - _last_sent[key] < cooldown_sec:
@@ -24,100 +21,78 @@ def is_duplicate(key, cooldown_sec=300):
     return False
 
 # ══════════════════════════════
-# TELEGRAM  (parse_mode HTML เพื่อให้ <pre> render monospace)
+# TELEGRAM
 # ══════════════════════════════
 def send_telegram(message):
     token = TELEGRAM_TOKEN.strip()
     if not token.startswith("bot"):
         token = "bot" + token
-    url    = f"https://api.telegram.org/{token}/sendMessage"
-    chunks = [message[i:i+4096] for i in range(0, len(message), 4096)]
-    for chunk in chunks:
-        try:
-            r = requests.post(url, json={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "text": chunk,
-                "parse_mode": "HTML"
-            }, timeout=10)
-            if not r.ok:                                    # fallback ไม่มี parse_mode
-                requests.post(url, json={
-                    "chat_id": TELEGRAM_CHAT_ID,
-                    "text": chunk
-                }, timeout=10)
-        except Exception as e:
-            print(f"Telegram error: {e}")
+    url = f"https://api.telegram.org/{token}/sendMessage"
+    if len(message) > 4096:
+        for i in range(0, len(message), 4096):
+            requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message[i:i+4096]})
+    else:
+        requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message})
 
-# ══════════════════════════════════════════════════════
-# ASCII CANDLESTICK CHART
-# ▓ = แท่งลง (bearish)   ░ = แท่งขึ้น (bullish)   │ = wick
-# Schematic chart แสดงแนวโน้ม + mark SL / ENTRY / TP
-# ══════════════════════════════════════════════════════
-def ascii_chart(direction, entry_price, sl_price, tp_price):
+# ══════════════════════════════
+# ASCII CHART GENERATOR
+# ══════════════════════════════
+def ascii_chart(data):
     try:
-        is_bear = (direction == "BEAR")
-        COLS = 10
-        ROWS = 12   # index 0 (top) … 12 (bottom)
+        m5_res = float(data.get("m5_res", 0))
+        m5_sup = float(data.get("m5_sup", 0))
+        m1_res = float(data.get("m1_res", 0))
+        m1_sup = float(data.get("m1_sup", 0))
+        price  = float(data.get("m1_close", 0))
+        m5_pat = data.get("m5_pat", "NONE")
+        m1_pat = data.get("m1_pat", "NONE")
+        m5_tl  = data.get("m5_tl", "MIXED")
+        m1_tl  = data.get("m1_tl", "MIXED")
 
-        if is_bear:
-            # SL บน, ENTRY กลาง, TP ล่าง
-            SL_R, EN_R, TP_R = 2, 5, 11
-            cdef = [
-                (1, 2, 0, 3, '░'),
-                (1, 3, 0, 4, '▓'),
-                (2, 3, 1, 4, '░'),
-                (3, 5, 2, 6, '▓'),
-                (4, 6, 3, 7, '▓'),
-                (5, 6, 4, 7, '░'),
-                (6, 8, 5, 9, '▓'),
-                (7, 9, 6,10, '▓'),
-                (8, 9, 7,10, '░'),
-                (9,11, 8,12, '▓'),
-            ]
-        else:
-            # SL ล่าง, ENTRY กลาง, TP บน
-            SL_R, EN_R, TP_R = 10, 7, 1
-            cdef = [
-                (10,11, 9,12, '▓'),
-                ( 9,10, 8,11, '▓'),
-                ( 8,10, 7,11, '░'),
-                ( 8, 9, 7,10, '▓'),
-                ( 7, 8, 6, 9, '░'),
-                ( 6, 7, 5, 8, '░'),
-                ( 6, 8, 5, 9, '▓'),
-                ( 4, 6, 3, 7, '░'),
-                ( 3, 5, 2, 6, '░'),
-                ( 1, 3, 0, 4, '░'),
-            ]
+        if m5_res == 0 or m5_sup == 0 or price == 0:
+            return ""
 
-        grid = [[' '] * COLS for _ in range(ROWS + 1)]
-        for ci, (bt, bb, wt, wb, ch) in enumerate(cdef):
-            if ci >= COLS:
-                break
-            rlo, rhi = min(wt, wb), max(wt, wb)
-            blo, bhi = min(bt, bb), max(bt, bb)
-            for r in range(ROWS + 1):
-                if rlo <= r <= rhi:
-                    grid[r][ci] = ch if blo <= r <= bhi else '│'
+        top = max(m5_res, m1_res, price) + 1
+        bot = min(m5_sup, m1_sup, price) - 1
+        rng = top - bot
+        if rng <= 0:
+            return ""
 
-        lines = []
-        for r in range(ROWS + 1):
-            cells = ''.join(grid[r])
-            if r == TP_R:
-                cells = '·' * COLS
-                ann   = f'  ◄ TP    {tp_price:.2f}'
-            elif r == EN_R:
-                ann   = f'  ◄ ENTRY {entry_price:.2f}'
-            elif r == SL_R:
-                ann   = f'  ◄ SL    {sl_price:.2f}'
-            else:
-                ann   = ''
-            lines.append(cells + ann)
+        rows  = 7
+        step  = rng / rows
+        lines = ["📐 KEY LEVELS"]
 
-        header = '▓=DOWN  ░=UP  │=wick'
-        return header + '\n' + '\n'.join(lines)
+        for i in range(rows + 1):
+            lvl = top - i * step
+            bar = "──────"
+            tag = ""
+            if abs(lvl - m5_res) < step * 0.5:
+                bar = "━━━━━━"; tag = "◀ RES(M5)"
+            elif abs(lvl - m5_sup) < step * 0.5:
+                bar = "━━━━━━"; tag = "◀ SUP(M5)"
+            elif abs(lvl - m1_res) < step * 0.5:
+                bar = "┄┄┄┄┄┄"; tag = "◀ res(M1)"
+            elif abs(lvl - m1_sup) < step * 0.5:
+                bar = "┄┄┄┄┄┄"; tag = "◀ sup(M1)"
+            if abs(lvl - price) < step * 0.6:
+                tag = "◄ NOW " + tag
+            lines.append(f"{round(lvl,1):>8} {bar}{tag}")
 
-    except Exception as e:
-        print(f"ascii_chart error: {e}")
+        pat_map = {
+            "DBL_TOP":"Double Top 🔴", "DBL_BOT":"Double Bottom 🟢",
+            "ASC_TRI":"Ascending Triangle ↗", "DESC_TRI":"Descending Triangle ↘",
+            "SYM_TRI":"Symmetrical Triangle ↔", "RISE_CH":"Rising Channel 📈",
+            "FALL_CH":"Falling Channel 📉"
+        }
+        tl_m5 = "↗" if m5_tl == "UP" else "↘" if m5_tl == "DOWN" else "↔"
+        tl_m1 = "↗" if m1_tl == "UP" else "↘" if m1_tl == "DOWN" else "↔"
+        lines.append(f"TL M5:{tl_m5} M1:{tl_m1}")
+        if m5_pat != "NONE":
+            lines.append(f"Pattern M5: {pat_map.get(m5_pat, m5_pat)}")
+        if m1_pat != "NONE":
+            lines.append(f"Pattern M1: {pat_map.get(m1_pat, m1_pat)}")
+        return "\n".join(lines)
+    except:
         return ""
 
 # ══════════════════════════════
@@ -151,25 +126,6 @@ def struct_block(data):
         ev_line("M1",  data.get("m1_tr"),  data.get("m1_ev"),  data.get("m1_evv"),  data.get("m1_rsi"),  data.get("m1_atr")),
     ])
 
-def calc_levels(direction, entry, m1_atr):
-    """คืนค่า (sl_pips, tp1, tp2, tp3, sl_price, tp2_price)"""
-    try:
-        atr_val  = float(m1_atr)
-        entry_f  = float(entry)
-        sl_p     = round(atr_val * 1.5, 2)
-        tp1      = round(sl_p * 1.0,   2)
-        tp2      = round(sl_p * 2.0,   2)
-        tp3      = round(sl_p * 3.0,   2)
-        if direction == "BEAR":
-            sl_price = round(entry_f + sl_p, 2)
-            tp_price = round(entry_f - tp2,  2)
-        else:
-            sl_price = round(entry_f - sl_p, 2)
-            tp_price = round(entry_f + tp2,  2)
-        return sl_p, tp1, tp2, tp3, sl_price, tp_price
-    except:
-        return "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"
-
 # ══════════════════════════════
 # OPP PROMPT
 # ══════════════════════════════
@@ -182,12 +138,20 @@ def get_opportunity_prompt(data):
     m1_atr    = data.get("m1_atr", 1)
     bull_avg  = data.get("bull_avg", "?")
     bear_avg  = data.get("bear_avg", "?")
+    chart     = ascii_chart(data)
 
     dir_e  = "🟢 BUY" if direction == "BULL" else "🔴 SELL"
     conf_e = "🔥 HIGH (ไม่มีลิมิต)" if conf == "HIGH" else f"⚡ MEDIUM (เหลือ {remaining}/3)"
     avg_s  = f"Bull {bull_avg}%" if direction == "BULL" else f"Bear {bear_avg}%"
 
-    sl_p, tp1, tp2, tp3, sl_price, tp_price = calc_levels(direction, m1_close, m1_atr)
+    try:
+        atr_val = float(m1_atr)
+        sl_p = round(atr_val * 1.5, 2)
+        tp1  = round(sl_p * 1.0, 2)
+        tp2  = round(sl_p * 2.0, 2)
+        tp3  = round(sl_p * 3.0, 2)
+    except:
+        sl_p = tp1 = tp2 = tp3 = "N/A"
 
     wait = (
         "① M1 CHoCH/BOS ขึ้น + candle ปิดเหนือ swing high\n"
@@ -208,7 +172,9 @@ STRUCTURE:
 {run_lines(data)}
 {ctx_line(data)}
 
-ตอบในรูปแบบนี้ (ห้ามเปลี่ยนโครงสร้าง):
+{chart}
+
+ตอบในรูปแบบนี้:
 
 ━━━━━━━━━━━━━━━━━━
 {dir_e} {conf_e} | {th}
@@ -227,17 +193,17 @@ M1    : [Entry signal + Vol]
 ━━━━━━━━━━━━━━━━━━
 {dir_e}
 Entry : {m1_close}
-SL    : ~{sl_p} pips ({sl_price})
-TP1   : ~{tp1} pips
-TP2   : ~{tp2} pips ({tp_price})
-TP3   : ~{tp3} pips
+SL    : ~{sl_p} pips (ATR×1.5)
+TP1   : ~{tp1} pips → 1:1
+TP2   : ~{tp2} pips → 1:2
+TP3   : ~{tp3} pips → 1:3
 ━━━━━━━━━━━━━━━━━━
 💡 [สรุป 2 บรรทัด]
 ⚠️ [ความเสี่ยง 1 บรรทัด]
 🎯 Confidence: {conf} ({avg_s})"""
 
 # ══════════════════════════════
-# ZONE HIT PROMPT
+# ZONE HIT PROMPT — ตอบสั้น ฉับ
 # ══════════════════════════════
 def get_zone_hit_prompt(data):
     th        = data.get("thai_time", "N/A")
@@ -257,12 +223,17 @@ def get_zone_hit_prompt(data):
     zone_level = m5_sup if direction == "BULL" else m5_res
     avg_s      = f"Bull {bull_avg}%" if direction == "BULL" else f"Bear {bear_avg}%"
 
-    sl_p, _, tp2, _, sl_price, tp_price = calc_levels(direction, m1_close, m1_atr)
+    try:
+        atr_val = float(m1_atr)
+        sl_p = round(atr_val * 1.5, 2)
+        tp2  = round(sl_p * 2.0, 2)
+    except:
+        sl_p = tp2 = "N/A"
 
+    # Quick pre-check indicators for Claude's context
     try:
         rsi_val = float(m1_rsi)
-        rsi_ok  = "✅" if (direction == "BULL" and rsi_val > 45) or \
-                          (direction == "BEAR" and rsi_val < 55) else "❌"
+        rsi_ok  = "✅" if (direction == "BULL" and rsi_val > 45) or (direction == "BEAR" and rsi_val < 55) else "❌"
     except:
         rsi_ok = "?"
 
@@ -293,8 +264,8 @@ STRUCTURE:
 
 [ถ้าออก ORDER]
 Entry : {m1_close}
-SL    : ~{sl_p} pips ({sl_price})
-TP    : ~{tp2} pips ({tp_price}) 1:2
+SL    : ~{sl_p} pips
+TP    : ~{tp2} pips (1:2)
 Risk  : [ต่ำ / กลาง / สูง]
 
 [ถ้าไม่ออก]
@@ -302,12 +273,12 @@ Risk  : [ต่ำ / กลาง / สูง]
 ━━━━━━━━━━━━━━━━━━"""
 
 # ══════════════════════════════
-# CLAUDE  (Haiku — เร็ว + ถูก เหมาะ real-time alert)
+# CLAUDE
 # ══════════════════════════════
 def analyze_with_claude(prompt, max_tokens=800):
     client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
     msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-4-5",
         max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -322,67 +293,35 @@ def webhook():
         raw = request.get_data(as_text=True)
         try:
             data = json.loads(raw)
-        except Exception:
+        except:
             send_telegram(f"⚠️ Parse Error:\n{raw[:300]}")
             return "OK", 200
 
         alert_type = data.get("type", "UNKNOWN")
 
-        # ── OPP ──────────────────────────────────────
         if alert_type == "OPP":
             direction = data.get("dir", "?")
             conf      = data.get("conf", "MEDIUM")
             th_time   = data.get("thai_time", "0:00")
             dedup_key = f"OPP_{direction}_{conf}_{th_time}"
+            # HIGH cooldown 120s, MEDIUM cooldown 180s
             cooldown  = 120 if conf == "HIGH" else 180
             if is_duplicate(dedup_key, cooldown):
                 return "OK", 200
+            prompt   = get_opportunity_prompt(data)
+            analysis = analyze_with_claude(prompt, max_tokens=900)
+            send_telegram(analysis)
 
-            # คำนวณราคาจริงเพื่อวาด chart
-            m1_close = data.get("m1_close", 0)
-            m1_atr   = data.get("m1_atr", 1)
-            sl_p, _, tp2, _, sl_price, tp_price = calc_levels(direction, m1_close, m1_atr)
-
-            chart_str = ""
-            if sl_price != "N/A":
-                chart_str = ascii_chart(
-                    direction,
-                    float(m1_close or 0),
-                    float(sl_price),
-                    float(tp_price)
-                )
-
-            analysis = analyze_with_claude(get_opportunity_prompt(data), max_tokens=900)
-
-            # Chart block อยู่บน, Claude analysis อยู่ล่าง
-            final_msg = (f"<pre>{chart_str}</pre>\n{analysis}") if chart_str else analysis
-            send_telegram(final_msg)
-
-        # ── ZONE HIT ─────────────────────────────────
         elif alert_type == "ZONE_HIT":
             direction = data.get("dir", "?")
             th_time   = data.get("thai_time", "0:00")
             dedup_key = f"ZONE_{direction}_{th_time}"
+            # 90s cooldown — fast follow-up but no spam
             if is_duplicate(dedup_key, 90):
                 return "OK", 200
-
-            m1_close = data.get("m1_close", 0)
-            m1_atr   = data.get("m1_atr", 1)
-            sl_p, _, tp2, _, sl_price, tp_price = calc_levels(direction, m1_close, m1_atr)
-
-            chart_str = ""
-            if sl_price != "N/A":
-                chart_str = ascii_chart(
-                    direction,
-                    float(m1_close or 0),
-                    float(sl_price),
-                    float(tp_price)
-                )
-
-            analysis = analyze_with_claude(get_zone_hit_prompt(data), max_tokens=400)
-
-            final_msg = (f"<pre>{chart_str}</pre>\n{analysis}") if chart_str else analysis
-            send_telegram(final_msg)
+            prompt   = get_zone_hit_prompt(data)
+            analysis = analyze_with_claude(prompt, max_tokens=400)
+            send_telegram(analysis)
 
         else:
             send_telegram(f"⚠️ Unknown alert type: {alert_type}")
@@ -392,7 +331,6 @@ def webhook():
         send_telegram(f"❌ Error: {str(e)}")
 
     return "OK", 200
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
