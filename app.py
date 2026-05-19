@@ -21,6 +21,22 @@ def is_duplicate(key, cooldown_sec=300):
     return False
 
 # ══════════════════════════════
+# QUOTE SYSTEM (ZenQuotes 100%)
+# ══════════════════════════════
+def get_quote():
+    try:
+        resp = requests.get("https://zenquotes.io/api/random", timeout=3)
+        if resp.status_code == 200:
+            d = resp.json()[0]
+            q = d.get("q", "")
+            a = d.get("a", "Unknown")
+            if q and len(q) < 120:
+                return f'💬 "{q}" — {a}'
+    except:
+        pass
+    return '💬 "The trend is your friend until it ends" — Martin Zweig'
+
+# ══════════════════════════════
 # TELEGRAM
 # ══════════════════════════════
 def send_telegram(message):
@@ -48,8 +64,6 @@ def ascii_chart(data):
         m1_pat   = data.get("m1_pat", "NONE")
         m5_tl    = data.get("m5_tl", "MIXED")
         m1_tl    = data.get("m1_tl", "MIXED")
-
-        # ✅ เพิ่ม SL/TP levels ใน chart
         bull_sl  = float(data.get("bull_sl", 0))
         bull_tp1 = float(data.get("bull_tp1", 0))
         bear_sl  = float(data.get("bear_sl", 0))
@@ -139,7 +153,6 @@ def struct_block(data):
     return "\n".join(lines)
 
 def sltp_block(data, direction):
-    """✅ SL/TP จาก Swing Structure จริง ไม่ใช่แค่ ATR คูณ"""
     price = data.get("m1_close", "N/A")
     try:
         if direction == "BULL":
@@ -218,7 +231,7 @@ M1 : [Trend + Event ล่าสุด + Vol]
 ━━━━━━━━━━━━━━━━━━"""
 
 # ══════════════════════════════
-# ✅ STANDING BY PROMPT
+# STANDING BY PROMPT
 # ══════════════════════════════
 def get_standby_prompt(data):
     th        = data.get("thai_time", "N/A")
@@ -232,23 +245,23 @@ def get_standby_prompt(data):
     sltp  = sltp_block(data, direction)
 
     if direction == "BULL":
-        lr_pct   = data.get("lr_bull", 0)
-        sr_pct   = data.get("sr_bull", 0)
-        missing  = (
+        lr_pct  = data.get("lr_bull", 0)
+        sr_pct  = data.get("sr_bull", 0)
+        missing = (
             f"M1/M5 ยังไม่ยืนยัน Bullish — SR Bull เพียง {sr_pct}% (ต้องการ ≥50%)\n"
             f"รอ: M1 CHoCH/BOS ขึ้น + Volume REAL [1.3x avg] + Retest Zone\n"
             f"Level ที่จับตา SUP: {data.get('m1_sup','N/A')} (M1) / {data.get('m5_sup','N/A')} (M5)"
         )
-        cancel   = f"ถ้า H4 หรือ H1 เกิด BOS BEAR = ยกเลิก Setup นี้ทันที"
+        cancel  = "ถ้า H4 หรือ H1 เกิด BOS BEAR = ยกเลิก Setup นี้ทันที"
     else:
-        lr_pct   = data.get("lr_bear", 0)
-        sr_pct   = data.get("sr_bear", 0)
-        missing  = (
+        lr_pct  = data.get("lr_bear", 0)
+        sr_pct  = data.get("sr_bear", 0)
+        missing = (
             f"M1/M5 ยังไม่ยืนยัน Bearish — SR Bear เพียง {sr_pct}% (ต้องการ ≥50%)\n"
             f"รอ: M1 CHoCH/BOS ลง + Volume REAL [1.3x avg] + Retest Zone\n"
             f"Level ที่จับตา RES: {data.get('m1_res','N/A')} (M1) / {data.get('m5_res','N/A')} (M5)"
         )
-        cancel   = f"ถ้า H4 หรือ H1 เกิด BOS BULL = ยกเลิก Setup นี้ทันที"
+        cancel  = "ถ้า H4 หรือ H1 เกิด BOS BULL = ยกเลิก Setup นี้ทันที"
 
     return f"""คุณคือ SMC Analyst วิเคราะห์ XAUUSD
 สถานะ: STANDING BY — H4+H1 Aligned {direction} แต่รอ M1/M5 ยืนยัน
@@ -300,8 +313,8 @@ def get_opportunity_prompt(data):
     dir_e  = "🟢 BUY" if direction == "BULL" else "🔴 SELL"
     conf_e = "🔥 HIGH" if conf == "HIGH" else "⚡ MEDIUM"
     sltp   = sltp_block(data, direction)
+    quote  = get_quote()
 
-    # ✅ Entry Checklist — เฉพาะเจาะจง รอ Retest + Confirm
     if direction == "BULL":
         checklist = (
             "① ราคาอยู่ในโซน Retest (เหนือ BOS Level เดิม ± 0.5 ATR)\n"
@@ -346,9 +359,7 @@ STRUCTURE DATA:
 
 ตอบในรูปแบบนี้เท่านั้น:
 
-━━━━━━━━━━━━━━━━━━
-{dir_e} {conf_e} | {th}
-━━━━━━━━━━━━━━━━━━
+{quote} ｜{dir_e} {conf_e} | {th}
 📊 CONFLUENCE
 H4+H1 : [Bias + BOS REAL/FAKE + ATR]
 M15   : [Zone + Structure ยืนยัน?]
@@ -414,7 +425,7 @@ def webhook():
             direction = data.get("dir", "?")
             th_time   = data.get("thai_time", "0:00")
             dedup_key = f"STANDBY_{direction}_{th_time}"
-            if is_duplicate(dedup_key, 600):  # 10 min cooldown
+            if is_duplicate(dedup_key, 600):
                 return "OK", 200
             prompt = get_standby_prompt(data)
 
