@@ -101,23 +101,31 @@ TF: {data.get("tf","N/A")} | Session: {data.get("session","N/A")}
 
 def prompt_fvg(data):
     direction = "🟢 Bullish" if data.get("dir") == "bull" else "🔴 Bearish"
+    fvg_top = data.get("fvg_top","N/A")
+    fvg_bot = data.get("fvg_bot","N/A")
     return f"""คุณคือ SMC Analyst วิเคราะห์ XAUUSD
 
 เกิด FVG (Fair Value Gap) {direction} บน XAUUSD
 เวลา: {data.get("time","N/A")} | Timeframe: {data.get("tf","N/A")}
 ราคาปัจจุบัน: {data.get("price","N/A")}
-FVG Top: {data.get("fvg_top","N/A")} | FVG Bot: {data.get("fvg_bot","N/A")}
 Session: {data.get("session","N/A")}
+
+⚠️ ข้อมูล FVG ZONE จากกราฟจริง (ใช้ค่านี้เท่านั้น):
+FVG Bot (ขอบล่าง): {fvg_bot}
+FVG Top (ขอบบน) : {fvg_top}
+FVG Zone = {fvg_bot} – {fvg_top}
+
+กฎเด็ดขาด: ห้ามใช้ราคาอื่นนอกจาก {fvg_bot} – {fvg_top} เป็น Entry Zone หรือ Fill Target
 
 ตอบในรูปแบบนี้:
 ━━━━━━━━━━━━━━━━━━
 📊 FVG {direction} | {data.get("time","N/A")}
-Zone: {data.get("fvg_bot","N/A")} – {data.get("fvg_top","N/A")}
+Zone: {fvg_bot} – {fvg_top}
 ━━━━━━━━━━━━━━━━━━
-🔍 ความหมาย: [ช่องว่างราคาที่มักถูก Fill]
-🎯 Fill Target: {data.get("fvg_bot","N/A")} – {data.get("fvg_top","N/A")}
-⏳ รอสัญญาณ: [เงื่อนไขก่อนเข้าเทรดใน FVG]
-⚠️ ระวัง: [ถ้า FVG ไม่ถูก Fill หมายความว่าอะไร]
+🔍 ความหมาย: [ช่องว่างราคาที่เกิดจากการเคลื่อนตัวเร็ว — อธิบาย 1 บรรทัด]
+🎯 Entry Zone: {fvg_bot} – {fvg_top} (รอราคากลับมา Fill)
+⏳ รอสัญญาณ: [Rejection / ChoCh / Engulfing ใน Zone ก่อนเข้า]
+⚠️ ระวัง: [ถ้าราคาทะลุ {fvg_bot} ลงไป = FVG ถูก Break]
 ━━━━━━━━━━━━━━━━━━"""
 
 def prompt_killzone(data):
